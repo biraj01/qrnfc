@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFC Writer App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+</head>
+<body>
+<p>
+    <input type="text" id="urlInput" placeholder="Enter Web URL">
+    <button onclick="readTag()">Test NFC Read</button>
+    <button onclick="writeTag()">Test NFC Write</button>
+        <button onclick="writeStaticTag()">Test Static write</button>
+
+    <button onclick="scanQRCode()">Scan QR Code</button>
+</p>
+<pre id="log"></pre>
+<p><small>Based on the code snippets from <a href="https://w3c.github.io/web-nfc/#examples">specification draft</a>.</small></p>
+
+<video id="qr-video"></video>
+
+<script>
+    async function readTag() {
+        if ("NDEFReader" in window) {
+            const ndef = new NDEFReader();
+            try {
+                await ndef.scan();
+                ndef.onreading = event => {
+                    const decoder = new TextDecoder();
+                    for (const record of event.message.records) {
+                        consoleLog("Record type:  " + record.recordType);
+                        consoleLog("MIME type:    " + record.mediaType);
+                        consoleLog("=== data ===\n" + decoder.decode(record.data));
+                    }
+                }
+            } catch(error) {
+                consoleLog(error);
+            }
+        } else {
+            consoleLog("Web NFC is not supported.");
+        }
+    }
+
+
+    async function writeStaticTag(){
+             if ("NDEFReader" in window) {
+            const ndef = new NDEFReader();
+            try {
+
+              await ndef.write({
+                records: [{ recordType: "url", data: "http://example.com/" }],
+              });    
+    
+                consoleLog("NDEF message written!");
+            } catch(error) {
+                consoleLog(error);
+            }
+        } else {
+            consoleLog("Web NFC is not supported.");
+        }
+    }
+    
+    async function writeTag() {
+
+        const urlInput = document.getElementById('urlInput');
+        const url = urlInput.value.trim();
+        consoleLog(url)
+        if (!url) {
+            consoleLog('Please enter a valid web URL.');
+            return;
+        }
+
+        if ("NDEFReader" in window) {
+            const ndef = new NDEFReader();
+            try {
+
+            // Writing a new message to the NFC tag
+           await ndef.write({
+                records: [{ recordType: "url", data: url }],
+              }); 
+
+
+                consoleLog("NDEF message written!");
+            } catch(error) {
+                consoleLog(error);
+            }
+        } else {
+            consoleLog("Web NFC is not supported.");
+        }
+    }
+
+    function consoleLog(data) {
+        var logElement = document.getElementById('log');
+        logElement.innerHTML += data + '\n';
+    };
+
+    function scanQRCode() {
+        const videoElement = document.getElementById('qr-video');
+        Instascan.Camera.getCameras().then(function (cameras) {
+            let backCamera = null;
+
+            cameras.forEach(function (camera) {
+                consoleLog(JSON.stringify(camera))
+                if (camera.name.toLowerCase().includes('back')) {
+                    backCamera = camera;
+                }
+            });
+
+            if (backCamera) {
+                const scanner = new Instascan.Scanner({ video: videoElement });
+
+                scanner.addListener('scan', function (content) {
+                    console.log('Scanned content:', content);
+                    document.getElementById('urlInput').value = content;
+                  // Stop the scanner after a successful scan
+                   scanner.stop();
+                });
+
+                scanner.start(backCamera);
+            } else {
+                consoleLog('No back camera found.');
+            }
+        }).catch(function (e) {
+            console.error(e);
+        });
+    }
+</script>
+</body>
+</html>
